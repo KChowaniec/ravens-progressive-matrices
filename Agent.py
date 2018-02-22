@@ -24,7 +24,7 @@ class Agent:
         CFrame = self.createFrame(C)
         DFrame={}
         
-		#get answer choices
+        #get answer choices
         choice_1 = [x for x in problem.getMatrices() if x.getName() == "1"][0]
         answer_choices.append(choice_1)
         choice_2 = [x for x in problem.getMatrices() if x.getName() == "2"][0]
@@ -40,7 +40,6 @@ class Agent:
 
         #get differences between A and B
         AtoB = self.getDelta(A,B, AFrame, BFrame)
-
 
         #generate object D using differences determined from A to B
         C_obj = C.getObjects()
@@ -93,7 +92,7 @@ class Agent:
         return self.chooseAnswer(answer_choices, D)
 
 
-	 #generate and test method of determining correct answer choice
+    #generate and test method of determining correct answer choice
     def chooseAnswer(self, answer_choices, D):
         matches=set()
         for i in range(len(answer_choices)):
@@ -155,7 +154,7 @@ class Agent:
                 for diff in B_attr_differences:
                     self.updateDelta(delta, B_name, diff, BFrame[B_Obj].get(diff))
             
-			#iterate through attributes of A and B
+            #iterate through attributes of A and B
             for A_att,B_att in zip(AFrame[A_Obj].items(),BFrame[B_Obj].items()):                        
                 #same attribute for both A and B
                 if(A_att[0] == B_att[0]):
