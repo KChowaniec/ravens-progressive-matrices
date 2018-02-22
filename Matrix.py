@@ -10,7 +10,7 @@ class Matrix:
 
     def __init__(self, name):
         self.name=name
-        self.objects=[]
+        self.objects={}
 
     def getName(self):
         return self.name

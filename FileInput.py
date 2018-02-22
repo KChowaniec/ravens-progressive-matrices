@@ -24,7 +24,7 @@ def parseFile(self):
                 #this is an object
                 line = line.strip()
                 newObject=Object(line)
-                newMatrix.objects.append(newObject)
+                newMatrix.objects[line]=newObject
            else:
                 #this is an attribute (key-value pair)
                 line = line.strip()
