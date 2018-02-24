@@ -97,11 +97,11 @@ class Agent:
                 #remove object from DFrame
                 DFrame.pop(obj)
         #print("Dframe = " + str(DFrame))
-        return self.chooseAnswer(answer_choices, DFrame)
+        return self.chooseAnswer(answer_choices, DFrame, CFrame)
 
 
     #generate and test method of determining correct answer choice
-    def chooseAnswer(self, answer_choices, DFrame):
+    def chooseAnswer(self, answer_choices, DFrame, CFrame):
         matches=set()
         for i in range(len(answer_choices)):
             match=True
@@ -117,12 +117,50 @@ class Agent:
                     match=False
             if(match):
                 matches.add(answer_choices[i].getName())
-        #print("answer choice? " + str(matches))
-        if(len(matches) > 0):
+        if(len(matches) == 1):
             return matches.pop()
         else:
-            #no match, randomly pick answer choice 1-6
+            matches = self.eliminateAnswers(answer_choices, DFrame, CFrame)
+            if(len(matches) == 1):
+                return matches.pop()
+            else:
+                #stil no match, randomly pick answer choice from list of matches (or if no matches, pick random from answer choices)
+                return self.guessRandomAnswer(matches)
+    
+    def guessRandomAnswer(self, matches):
+        #guess random from list of matches
+        if(len(matches) > 0):
+            return str(random.choice(tuple(matches)))
+        else:
+            #guess random from all answer choices
             return str(random.randint(1,7))
+    
+    def eliminateAnswers(self, answer_choices, DFrame, CFrame):
+        matches=set()
+        for i in range(len(answer_choices)):
+            match=True
+            choiceObj = answer_choices[i].getObjects()
+            numChoiceObj=len(choiceObj.keys())
+            numDObj = len(DFrame.keys())
+            #compare number of objects in answer choice to generated object
+            if(numChoiceObj != numDObj):
+                match=False
+            else:
+                for obj in choiceObj.keys():
+                    choice_shape = choiceObj[obj].attributes.get("shape")
+                    C_shapes = []
+                    if (obj in CFrame.keys()):
+                        for key in CFrame.keys():
+                            C_shapes.append(CFrame[key].get("shape"))
+                            #compare shapes of answer choices to C objects
+                        if not(choice_shape in C_shapes):
+                            match=False
+                    else:
+                        match=False
+            if(match):
+                matches.add(answer_choices[i].getName()) 
+        #print("matches = " + str(matches))
+        return matches
 
     def getDelta(self, AFrame, BFrame):
         A_Objs = AFrame.keys()
