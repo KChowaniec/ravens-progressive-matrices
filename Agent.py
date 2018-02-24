@@ -1,7 +1,7 @@
 
-from Object import Object
 from Matrix import Matrix
 import random
+import copy
 
 #represents knowledge-based agent
 class Agent:
@@ -22,7 +22,8 @@ class Agent:
         
         C = [x for x in problem.getMatrices() if x.getName() == "C"][0]
         CFrame = self.createFrame(C)
-        DFrame={}
+       
+        DFrame= copy.deepcopy(CFrame)
         
         #get answer choices
         choice_1 = [x for x in problem.getMatrices() if x.getName() == "1"][0]
@@ -39,17 +40,16 @@ class Agent:
         answer_choices.append(choice_6)
 
         #get differences between A and B
-        AtoB = self.getDelta(A,B, AFrame, BFrame)
+        AtoB = self.getDelta(AFrame, BFrame)
 
         #generate object D using differences determined from A to B
         C_obj = C.getObjects()
         D= Matrix("D")
         custom_keys={"vertical-flip"}
         for obj in C_obj:
-            new_obj = Object(obj)
             newValues = AtoB.get(obj)
             #object in C doesn't exist in A
-            if not(obj in A.objects):
+            if not(obj in AFrame.keys()):
                 objAtt = C_obj[obj].getAttributes()
                 for val in AtoB.items():
                     common_keys = set(objAtt).intersection(val[1])
@@ -57,13 +57,12 @@ class Agent:
                         objAtt.update({key:val[1].get(key)})
             if not(newValues):
                 newValues=[]
-            #ignore deleted objects
             if("deleted" not in newValues ):
                     #get attributes added during delta that don't exist in C
                     added_attributes= list(set(newValues) - set(C_obj[obj].getAttributes().keys()) - set(custom_keys))
                     if(added_attributes):
                         for add in added_attributes:
-                            new_obj.attributes.update({add: newValues.get(add)})
+                            DFrame[obj].update({add: newValues.get(add)})
                     #for each attribute of C, see if there was a change based on delta results of A to B
                     for keyValue in CFrame[obj].items():
                         if(keyValue[0] in newValues):
@@ -71,11 +70,16 @@ class Agent:
                                 if(keyValue[0] == "angle"):
                                     A_angle = AFrame[obj].get("angle")
                                     B_angle = BFrame[obj].get("angle")
-                                    newAtt=self.determineAngle(keyValue[1], A_angle, B_angle)
+                                    C_shape = CFrame[obj].get("shape")
+                                    vertical_flip = newValues.get("vertical-flip")
+                                    newAtt=self.determineAngle(keyValue[1], C_shape, A_angle, B_angle, vertical_flip)
+                                elif(keyValue[0] == "shape"):
+                                    DFrame = self.changeShape(AFrame, BFrame, CFrame, AtoB, DFrame)
+                                    newAtt=None
                                 else:
                                     newAtt=newValues.get(keyValue[0])
                                 #ignore deleted attribute values
-                                if not(newAtt == "deleted"):
+                                if not(newAtt == "deleted" or newAtt == None):
                                     multipleVal=keyValue[1].split(",")
                                     if(len(multipleVal) > 1):
                                         attList = newAtt.split(",")
@@ -83,27 +87,30 @@ class Agent:
                                             if not(val in multipleVal):
                                                 multipleVal.append(val)
                                         newAtt = ','.join(multipleVal)
-                                    new_obj.attributes.update({keyValue[0]:newAtt})  
+                                    DFrame[obj].update({keyValue[0]: newAtt})
+                                elif (newAtt == "deleted"):
+                                    #remove attribute from DFrame
+                                    DFrame[obj].pop(keyValue[0]) 
                         else:
-                            new_obj.attributes.update({keyValue[0]:keyValue[1]})
-                    D.objects[obj]=new_obj
-                    DFrame = self.createFrame(D)
-        
-        return self.chooseAnswer(answer_choices, D)
+                            DFrame[obj].update({keyValue[0]: keyValue[1]})
+            else:
+                #remove object from DFrame
+                DFrame.pop(obj)
+        #print("Dframe = " + str(DFrame))
+        return self.chooseAnswer(answer_choices, DFrame)
 
 
     #generate and test method of determining correct answer choice
-    def chooseAnswer(self, answer_choices, D):
+    def chooseAnswer(self, answer_choices, DFrame):
         matches=set()
         for i in range(len(answer_choices)):
             match=True
             choiceObj = answer_choices[i].getObjects()
             for obj in choiceObj.keys():
-                if (obj in D.objects):
-                    Dobj = D.objects.get(obj)
+                if (obj in DFrame.keys()):
                     #compare attributes of answer choice to generated object D
                     choiceAttr = choiceObj[obj].getAttributes()
-                    DAttr = Dobj.getAttributes()
+                    DAttr = DFrame[obj]
                     if(choiceAttr != DAttr):
                         match=False
                 else:
@@ -117,12 +124,12 @@ class Agent:
             #no match, randomly pick answer choice 1-6
             return str(random.randint(1,7))
 
-    def getDelta(self,A,B, AFrame, BFrame):
-        A_Objs = A.getObjects()
-        B_Objs = B.getObjects()
+    def getDelta(self, AFrame, BFrame):
+        A_Objs = AFrame.keys()
+        B_Objs = BFrame.keys()
         
-        A_names = [A_Obj for A_Obj in A_Objs.keys()]
-        B_names = [B_Obj for B_Obj in B_Objs.keys()]
+        A_names = [A_Obj for A_Obj in A_Objs]
+        B_names = [B_Obj for B_Obj in B_Objs]
         A_differences = list(set(A_names) - set(B_names))
         B_differences = list(set(B_names) - set(A_names))
         delta = {}
@@ -135,10 +142,10 @@ class Agent:
         
         #iterate through objects of A and B
         for A_name,B_name in zip(A_names,B_names):
-            for obj in A_Objs.keys():
+            for obj in A_Objs:
                 if obj == A_name:
                     A_Obj = obj
-            for obj in B_Objs.keys():
+            for obj in B_Objs:
                 if obj == B_name:
                     B_Obj = obj
             
@@ -186,10 +193,21 @@ class Agent:
         for obj in list(matrix.objects):
             frame[matrix.objects[obj].name] = matrix.objects[obj].attributes
         return frame
+    
+    def changeShape(self, AFrame, BFrame, CFrame, delta, DFrame):
+        for change in delta.keys():
+            if("shape" in delta[change].keys()):
+                A_shape = AFrame[change].get("shape")
+                B_shape = BFrame[change].get("shape")
+                for obj in CFrame.keys():
+                    C_shape = CFrame[obj].get("shape")
+                    if(C_shape == A_shape):
+                        DFrame[obj].update({"shape" : B_shape})
+        return DFrame
 
-    def determineAngle(self, C_angle, A_angle, B_angle):
+    def determineAngle(self, C_angle, C_shape, A_angle, B_angle, vertical_flip):
         if(abs(int(A_angle) - int(B_angle)) == 180):
-            if(int(A_angle) in [0,180] and int(B_angle) in [0,180]):
+            if(vertical_flip == "yes"):
                 newAngle = int(C_angle) + 180
                  #vertical flip add 180 to C angle (if > 360, subtract 360 from it)
                 if(newAngle > 360):
@@ -205,4 +223,8 @@ class Agent:
                         newAngle = newAngle - 360
                     return str(newAngle)
         else:
-            return str(B_angle)
+            if(C_shape == "circle"):
+                #circles can't rotate
+                return C_angle
+            else:
+                return str(B_angle)
