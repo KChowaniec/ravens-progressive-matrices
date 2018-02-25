@@ -119,7 +119,7 @@ class Agent:
                 matches.add(answer_choices[i].getName())
         if(len(matches) == 1):
             return matches.pop()
-        else:
+        else: #agent knows it made a mistake since generated object doesn't match any answer choice
             matches = self.eliminateAnswers(answer_choices, DFrame, CFrame)
             if(len(matches) == 1):
                 return matches.pop()
@@ -157,6 +157,15 @@ class Agent:
                             match=False
                     else:
                         match=False
+            #check negative angles
+            for obj in DFrame.keys():
+                if ("angle" in DFrame[obj]):
+                    choice_angle = choiceObj[obj].attributes.get("angle")
+                    D_angle = DFrame[obj].get("angle")
+                    if not(choice_angle == D_angle):
+                        negative_angle = str(360 - int(D_angle))
+                        if not(negative_angle == choice_angle):
+                            match=False            
             if(match):
                 matches.add(answer_choices[i].getName()) 
         #print("matches = " + str(matches))
